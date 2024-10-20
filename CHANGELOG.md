@@ -4,6 +4,302 @@ All notable changes to this project will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v2.6.4](https://github.com/cabol/nebulex/tree/v2.6.4) (2024-10-19)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.6.3...v2.6.4)
+
+**Closed issues:**
+
+- [Proposal] A New GC Strategy for Local Generation
+  [#184](https://github.com/cabol/nebulex/issues/184)
+
+**Merged pull requests:**
+
+- Fix race condition in multilevel cache replication
+  [#232](https://github.com/cabol/nebulex/pull/232)
+  ([costaraphael](https://github.com/costaraphael))
+- Fix typos again
+  [#230](https://github.com/cabol/nebulex/pull/230)
+  ([kianmeng](https://github.com/kianmeng))
+
+## [v2.6.3](https://github.com/cabol/nebulex/tree/v2.6.3) (2024-08-05)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.6.2...v2.6.3)
+
+**Closed issues:**
+
+- `Cache.all(nil, return: :value)` with a partitioned cache gives incorrect
+  results
+  [#228](https://github.com/cabol/nebulex/issues/228)
+- 2.6.2 is missing from tags and releases on github
+  [#227](https://github.com/cabol/nebulex/issues/227)
+
+**Merged pull requests:**
+
+- `Cache.all(nil, return: :value)` did not correctly handle values that are
+  lists.
+  [#229](https://github.com/cabol/nebulex/pull/229)
+  ([jweinkam](https://github.com/jweinkam))
+
+## [v2.6.2](https://github.com/cabol/nebulex/tree/v2.6.2) (2024-06-15)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.6.1...v2.6.2)
+
+**Closed issues:**
+
+- Having a cache per user ID
+  [#224](https://github.com/cabol/nebulex/issues/224)
+
+**Merged pull requests:**
+
+- Fix some compiler warnings in Elixir 1.17
+  [#222](https://github.com/cabol/nebulex/pull/222)
+  ([peaceful-james](https://github.com/peaceful-james))
+
+## [v2.6.1](https://github.com/cabol/nebulex/tree/v2.6.1) (2024-02-24)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.6.0...v2.6.1)
+
+**Merged pull requests:**
+
+- Improve variable handing in key generators
+  [#221](https://github.com/cabol/nebulex/pull/221)
+  ([hissssst](https://github.com/hissssst))
+
+## [v2.6.0](https://github.com/cabol/nebulex/tree/v2.6.0) (2024-01-21)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.5.2...v2.6.0)
+
+**Fixed bugs:**
+
+- Fix compatibility with Elixir 1.15 and 1.16
+  [#220](https://github.com/cabol/nebulex/issues/220)
+
+**Closed issues:**
+
+- `Multilevel` inclusive cache doesn't duplicate entries backwards on
+  `get_all/2`
+  [#219](https://github.com/cabol/nebulex/issues/219)
+- Empty arguments list passed to `generate/3` in Elixir 1.16
+  [#218](https://github.com/cabol/nebulex/issues/218)
+- Regression on decorated functions and Elixir 1.16
+  [#216](https://github.com/cabol/nebulex/issues/216)
+- Bug on Local adapter when using `delete_all` and keys are nested tuples:
+  not a valid match specification
+  [#211](https://github.com/cabol/nebulex/issues/211)
+- `Nebulex.RegistryLookupError`
+  [#207](https://github.com/cabol/nebulex/issues/207)
+- Docs on Migrating to v2 from Nebulex.Adapters.Dist.Cluster
+  [#198](https://github.com/cabol/nebulex/issues/198)
+
+**Merged pull requests:**
+
+- Partitioned Adapter supports two-item tuples as keys
+  [#214](https://github.com/cabol/nebulex/pull/214)
+  ([twinn](https://github.com/twinn))
+- Adds nebulex Ecto adapter
+  [#212](https://github.com/cabol/nebulex/pull/212)
+  ([hissssst](https://github.com/hissssst))
+
+## [v2.5.2](https://github.com/cabol/nebulex/tree/v2.5.2) (2023-07-14)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.5.1...v2.5.2)
+
+**Closed issues:**
+
+- Replicated adapter syncing during rolling deployment.
+  [#209](https://github.com/cabol/nebulex/issues/209)
+- Ambiguity regarding ttl and `gc_interval` relation.
+  [#208](https://github.com/cabol/nebulex/issues/208)
+- Seeing Nebulex.RPCError during deployments with partitioned adapter.
+  [#206](https://github.com/cabol/nebulex/issues/206)
+- Random `:erpc`, `:timeout` with partitioned get.
+  [#202](https://github.com/cabol/nebulex/issues/202)
+- Processes reading from cache blocked by generational gc process.
+  [#197](https://github.com/cabol/nebulex/issues/197)
+
+**Merged pull requests:**
+
+- Delay flushing ets table to avoid blocking processes using it.
+  [#210](https://github.com/cabol/nebulex/pull/210)
+  ([szajbus](https://github.com/szajbus))
+
+## [v2.5.1](https://github.com/cabol/nebulex/tree/v2.5.1) (2023-05-27)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.5.0...v2.5.1)
+
+**Merged pull requests:**
+
+- Fix `nil` check in `Nebulex.Adapters.Multilevel.get/3`
+  [#205](https://github.com/cabol/nebulex/pull/205)
+  ([1100x1100](https://github.com/1100x1100))
+- `mix nbx.gen.cache` example fixed
+  [#204](https://github.com/cabol/nebulex/pull/204)
+  ([hissssst](https://github.com/hissssst))
+
+## [v2.5.0](https://github.com/cabol/nebulex/tree/v2.5.0) (2023-05-13)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.4.2...v2.5.0)
+
+**Implemented enhancements:**
+
+- Support for functions that can set TTL in Decorator similar to Match
+  [#200](https://github.com/cabol/nebulex/issues/200)
+- Improve default match function in decorators to cover more scenarios
+  [#177](https://github.com/cabol/nebulex/issues/177)
+- Adapters implementation guide
+  [#96](https://github.com/cabol/nebulex/issues/96)
+
+**Fixed bugs:**
+
+- Issue with keys set to `false` when calling `get_all` in local adapter
+  [#187](https://github.com/cabol/nebulex/issues/187)
+
+**Closed issues:**
+
+- Is there any way to get the size of the cache?
+  [#203](https://github.com/cabol/nebulex/issues/203)
+- Where to use load/2, dump/2
+  [#201](https://github.com/cabol/nebulex/issues/201)
+- `Nebulex.Cache` callbacks mention "Shared Options" section that do not exist
+  [#199](https://github.com/cabol/nebulex/issues/199)
+- Errors when storing nil values
+  [#195](https://github.com/cabol/nebulex/issues/195)
+- Unregistering cache in registry happens after cache shuts down
+  [#194](https://github.com/cabol/nebulex/issues/194)
+- Is there a good way to evict multiple caches at once by some conditions?
+  [#192](https://github.com/cabol/nebulex/issues/192)
+- Unable to use module attributes when specifying a MFA cache within the decorator
+  [#191](https://github.com/cabol/nebulex/issues/191)
+- Nebulex crash when `gc_interval` is not set
+  [#182](https://github.com/cabol/nebulex/issues/182)
+- `ArgumentError` * 1st argument: the table identifier does not refer to an existing ETS table
+  [#181](https://github.com/cabol/nebulex/issues/181)
+- Feedback for `NebulexLocalDistributedAdapter`
+  [#180](https://github.com/cabol/nebulex/issues/180)
+- Multilevel invalidation
+  [#179](https://github.com/cabol/nebulex/issues/179)
+- External cache-key references on `cacheable` decorator
+  [#178](https://github.com/cabol/nebulex/issues/178)
+- [multiple clause functions] Cannot use ignored variables in decorator keys
+  [#173](https://github.com/cabol/nebulex/issues/173)
+- Ability for referencing a key in the `cacheable` decorator via `:references` option
+  [#169](https://github.com/cabol/nebulex/issues/169)
+- Multi level caching suggestion?
+  [#168](https://github.com/cabol/nebulex/issues/168)
+
+**Merged pull requests:**
+
+- Fix `Local.get_all` with false values
+  [#186](https://github.com/cabol/nebulex/pull/186)
+  ([renatoaguiar](https://github.com/renatoaguiar))
+- Add NebulexLocalMultilevelAdapter to the list
+  [#185](https://github.com/cabol/nebulex/pull/185)
+  ([martosaur](https://github.com/martosaur))
+- Fix the crash when `gc_interval` is not set
+  [#183](https://github.com/cabol/nebulex/pull/183)
+  ([dongfuye](https://github.com/dongfuye))
+- [#169] Reference a key in `cacheable` decorator via `:references` option
+  [#176](https://github.com/cabol/nebulex/pull/176)
+  ([cabol](https://github.com/cabol))
+- Creating New Adapter guide
+  [#175](https://github.com/cabol/nebulex/pull/175)
+  ([martosaur](https://github.com/martosaur))
+
+## [v2.4.2](https://github.com/cabol/nebulex/tree/v2.4.2) (2022-11-04)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.4.1...v2.4.2)
+
+**Closed issues:**
+
+- Adapter configuration per-env?
+  [#171](https://github.com/cabol/nebulex/issues/171)
+- On-change handler for write-through decorators
+  [#165](https://github.com/cabol/nebulex/issues/165)
+- Document test env setup with decorators?
+  [#155](https://github.com/cabol/nebulex/issues/155)
+- Managing Failovers in the cluster
+  [#131](https://github.com/cabol/nebulex/issues/131)
+
+**Merged pull requests:**
+
+- Make Multilevel adapter apply deletes in reverse order
+  [#174](https://github.com/cabol/nebulex/pull/174)
+  ([martosaur](https://github.com/martosaur))
+- Use import Bitwise instead of use Bitwise
+  [#172](https://github.com/cabol/nebulex/pull/172)
+  ([ryvasquez](https://github.com/ryvasquez))
+- Fix result of getting value by non existent key
+  [#166](https://github.com/cabol/nebulex/pull/166)
+  ([fuelen](https://github.com/fuelen))
+
+## [v2.4.1](https://github.com/cabol/nebulex/tree/v2.4.1) (2022-07-10)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.4.0...v2.4.1)
+
+**Closed issues:**
+
+- Telemetry handler fails when using `put_all`
+  [#163](https://github.com/cabol/nebulex/issues/163)
+- Fix `incr/3` to initialize default value if ttl is expired
+  [#162](https://github.com/cabol/nebulex/issues/162)
+- Cannot use variables in decorator keys
+  [#161](https://github.com/cabol/nebulex/issues/161)
+
+**Merged pull requests:**
+
+- Update stats handler to handle map type argument passed to `put_all`
+  [#164](https://github.com/cabol/nebulex/pull/164)
+  ([ananthakumaran](https://github.com/ananthakumaran))
+- New adapter with Horde
+  [#160](https://github.com/cabol/nebulex/pull/160)
+  ([eliasdarruda](https://github.com/eliasdarruda))
+
+## [v2.4.0](https://github.com/cabol/nebulex/tree/v2.4.0) (2022-06-05)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.3.2...v2.4.0)
+
+**Closed issues:**
+
+- Multiple keys deletion at once with predefined query `{:in, keys}`
+  [#159](https://github.com/cabol/nebulex/issues/159)
+- Duplicate data keys when put in replicated cache when start app
+  [#158](https://github.com/cabol/nebulex/issues/158)
+- Option `:cache` admits MFA tuple `{module, function, args}` as value on the
+  annotated functions
+  [#157](https://github.com/cabol/nebulex/issues/157)
+
+**Merged pull requests:**
+
+- Allow passing dynamic cache configuration to the decorators
+  [#156](https://github.com/cabol/nebulex/pull/156)
+  ([suzdalnitski](https://github.com/suzdalnitski))
+- Fix typo
+  [#154](https://github.com/cabol/nebulex/pull/154)
+  ([kianmeng](https://github.com/kianmeng))
+- User erlef/setup-beam for GitHub Actions
+  [#153](https://github.com/cabol/nebulex/pull/153)
+  ([kianmeng](https://github.com/kianmeng))
+- Fix typos
+  [#152](https://github.com/cabol/nebulex/pull/152)
+  ([george124816](https://github.com/george124816))
+- Fix config comments
+  [#150](https://github.com/cabol/nebulex/pull/150)
+  ([alexandrubagu](https://github.com/alexandrubagu))
+
+## [v2.3.2](https://github.com/cabol/nebulex/tree/v2.3.2) (2022-03-29)
+
+[Full Changelog](https://github.com/cabol/nebulex/compare/v2.3.1...v2.3.2)
+
+**Closed issues:**
+
+- Transaction in Replicate not block global
+  [#147](https://github.com/cabol/nebulex/issues/147)
+- The match spec in the doc should be of size 5 instead of size 4
+  [#146](https://github.com/cabol/nebulex/issues/146)
+- Performance penalty when using Multilevel + Local + Redis adapters
+  [#138](https://github.com/cabol/nebulex/issues/138)
+
 ## [v2.3.1](https://github.com/cabol/nebulex/tree/v2.3.1) (2022-03-13)
 
 [Full Changelog](https://github.com/cabol/nebulex/compare/v2.3.0...v2.3.1)

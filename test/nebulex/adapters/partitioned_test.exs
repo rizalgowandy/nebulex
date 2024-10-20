@@ -58,6 +58,8 @@ defmodule Nebulex.Adapters.PartitionedTest do
     end
 
     test "fails because unloaded keyslot module" do
+      _ = Process.flag(:trap_exit, true)
+
       assert {:error, {%ArgumentError{message: msg}, _}} =
                Partitioned.start_link(
                  name: :unloaded_keyslot,
@@ -68,6 +70,8 @@ defmodule Nebulex.Adapters.PartitionedTest do
     end
 
     test "fails because keyslot module does not implement expected behaviour" do
+      _ = Process.flag(:trap_exit, true)
+
       assert {:error, {%ArgumentError{message: msg}, _}} =
                Partitioned.start_link(
                  name: :invalid_keyslot,
@@ -80,6 +84,8 @@ defmodule Nebulex.Adapters.PartitionedTest do
     end
 
     test "fails because invalid keyslot option" do
+      _ = Process.flag(:trap_exit, true)
+
       assert {:error, {%ArgumentError{message: msg}, _}} =
                Partitioned.start_link(
                  name: :invalid_keyslot,
@@ -108,6 +114,28 @@ defmodule Nebulex.Adapters.PartitionedTest do
         assert Partitioned.put("foo", "bar") == :ok
         assert Partitioned.get("foo") == "bar"
       end)
+    end
+
+    test "custom keyslot supports two item tuple keys for get_all" do
+      defmodule TupleKeyslot do
+        @behaviour Nebulex.Adapter.Keyslot
+
+        @impl true
+        def hash_slot({_, _} = key, range) do
+          key
+          |> :erlang.phash2()
+          |> rem(range)
+        end
+      end
+
+      test_with_dynamic_cache(
+        Partitioned,
+        [name: :custom_keyslot_with_tuple_keys, keyslot: TupleKeyslot],
+        fn ->
+          assert Partitioned.put_all([{{"foo", 1}, "bar"}]) == :ok
+          assert Partitioned.get_all([{"foo", 1}]) == %{{"foo", 1} => "bar"}
+        end
+      )
     end
 
     test "get_and_update" do

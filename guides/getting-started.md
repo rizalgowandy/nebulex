@@ -29,7 +29,7 @@ changing the `deps` definition in that file to this:
 ```elixir
 defp deps do
   [
-    {:nebulex, "~> 2.3"},
+    {:nebulex, "~> 2.6"},
     {:shards, "~> 1.0"},      #=> When using :shards as backend
     {:decorator, "~> 1.4"},   #=> When using Caching Annotations
     {:telemetry, "~> 1.0"}    #=> When using the Telemetry events (Nebulex stats)
@@ -88,7 +88,7 @@ config :blog, Blog.Cache,
   allocated_memory: 2_000_000_000,
   # GC min timeout: 10 sec
   gc_cleanup_min_timeout: :timer.seconds(10),
-  # GC min timeout: 10 min
+  # GC max timeout: 10 min
   gc_cleanup_max_timeout: :timer.minutes(10)
 ```
 
@@ -107,7 +107,7 @@ config :blog, Blog.Cache,
   allocated_memory: 2_000_000_000,
   # GC min timeout: 10 sec
   gc_cleanup_min_timeout: :timer.seconds(10),
-  # GC min timeout: 10 min
+  # GC max timeout: 10 min
   gc_cleanup_max_timeout: :timer.minutes(10)
 ```
 
@@ -531,7 +531,7 @@ config :blog, Blog.PartitionedCache,
     allocated_memory: 2_000_000_000,
     # GC min timeout: 10 sec
     gc_cleanup_min_timeout: :timer.seconds(10),
-    # GC min timeout: 10 min
+    # GC max timeout: 10 min
     gc_cleanup_max_timeout: :timer.minutes(10)
   ]
 ```

@@ -22,7 +22,7 @@ defmodule Nebulex.CachingTest do
     def generate(mod, fun, args), do: :erlang.phash2({mod, fun, args})
   end
 
-  defmodule ErrorCache do
+  defmodule YetAnotherCache do
     use Nebulex.Cache,
       otp_app: :nebulex,
       adapter: Nebulex.Adapters.Local
@@ -100,18 +100,33 @@ defmodule Nebulex.CachingTest do
   describe "cacheable" do
     test "with default opts" do
       refute Cache.get("x")
-      assert get_by_x("x") == {"x", "y"}
-      assert Cache.get("x") == {"x", "y"}
-      refute get_by_x("nil")
-      refute Cache.get("nil")
+      assert get_by_x("x") == nil
+      refute Cache.get("x")
 
-      refute Cache.get({2, 2})
-      assert get_by_xy(2, 2) == {2, 4}
-      assert Cache.get({2, 2}) == {2, 4}
+      assert get_by_x(1, 11) == 11
+      assert Cache.get(1) == 11
+
+      assert get_by_x(2, {:ok, 22}) == {:ok, 22}
+      assert Cache.get(2) == {:ok, 22}
+
+      assert get_by_x(3, :error) == :error
+      refute Cache.get(3)
+
+      assert get_by_x(4, {:error, 4}) == {:error, 4}
+      refute Cache.get(4)
+
+      refute Cache.get({:xy, 2})
+      assert get_by_xy(:xy, 2) == {:xy, 4}
+      assert Cache.get({:xy, 2}) == {:xy, 4}
 
       :ok = Process.sleep(1100)
-      assert Cache.get("x") == {"x", "y"}
-      assert Cache.get({2, 2}) == {2, 4}
+
+      refute Cache.get("x")
+      assert Cache.get(1) == 11
+      assert Cache.get(2) == {:ok, 22}
+      refute Cache.get(3)
+      refute Cache.get(4)
+      assert Cache.get({:xy, 2}) == {:xy, 4}
     end
 
     test "with opts" do
@@ -145,6 +160,15 @@ defmodule Nebulex.CachingTest do
       refute Cache.get({:ok, "hello"})
     end
 
+    test "with match function and custom opts" do
+      refute Cache.get(300)
+      assert get_with_custom_ttl(300) == {:ok, %{ttl: 300}}
+      assert Cache.get(300) == {:ok, %{ttl: 300}}
+
+      :ok = Process.sleep(400)
+      refute Cache.get(300)
+    end
+
     test "with default key" do
       assert get_with_default_key(123, {:foo, "bar"}) == :ok
       assert [123, {:foo, "bar"}] |> :erlang.phash2() |> Cache.get() == :ok
@@ -174,31 +198,194 @@ defmodule Nebulex.CachingTest do
 
     test "without args" do
       refute Cache.get(0)
+
       assert get_without_args() == "hello"
       assert Cache.get(0) == "hello"
     end
 
     test "with side effects and returning false (issue #111)" do
       refute Cache.get("side-effect")
+
       assert get_false_with_side_effect(false) == false
       assert Cache.get("side-effect") == 1
+
       assert get_false_with_side_effect(false) == false
       assert Cache.get("side-effect") == 1
     end
   end
 
+  describe "cacheable with references" do
+    setup_with_cache(YetAnotherCache)
+
+    test "with referenced key" do
+      # Expected values
+      referenced_key = keyref "referenced_id"
+      result = %{id: "referenced_id", name: "referenced_name"}
+
+      # Nothing is cached yet
+      refute Cache.get("referenced_id")
+      refute Cache.get("referenced_name")
+
+      # First run: the function block is executed and its result is cached under
+      # the referenced key, and the referenced key is cached under the given key
+      assert get_with_referenced_key("referenced_name") == result
+
+      # Assert the key points to the referenced key
+      assert Cache.get("referenced_name") == referenced_key
+
+      # Assert the referenced key points to the cached value
+      assert Cache.get("referenced_id") == result
+
+      # Next run: the value should come from the cache
+      assert get_with_referenced_key("referenced_name") == result
+
+      # Simulate a cache eviction for the referenced key
+      :ok = Cache.delete("referenced_id")
+
+      # The value under the referenced key should not longer exist
+      refute Cache.get("referenced_id")
+
+      # Assert the key still points to the referenced key
+      assert Cache.get("referenced_name") == referenced_key
+
+      # Next run: the key does exist but the referenced key doesn't, then the
+      # function block is executed and the result is cached under the referenced
+      # key back again
+      assert get_with_referenced_key("referenced_name") == result
+
+      # Assert the key points to the referenced key
+      assert Cache.get("referenced_name") == referenced_key
+
+      # Assert the referenced key points to the cached value
+      assert Cache.get("referenced_id") == result
+
+      # Similate the referenced key is overridden
+      :ok = Cache.put("referenced_name", "overridden")
+
+      # The referenced key is overridden
+      assert get_with_referenced_key("referenced_name") == "overridden"
+    end
+
+    test "with referenced key from args" do
+      # Expected values
+      referenced_key = keyref "id"
+      result = %{attrs: %{id: "id"}, name: "name"}
+
+      # Nothing is cached yet
+      refute Cache.get("id")
+      refute Cache.get("name")
+
+      # First run: the function block is executed and its result is cached under
+      # the referenced key, and the referenced key is cached under the given key
+      assert get_with_referenced_key_from_args("name", %{id: "id"}) == result
+
+      # Assert the key points to the referenced key
+      assert Cache.get("name") == referenced_key
+
+      # Assert the referenced key points to the cached value
+      assert Cache.get("id") == result
+
+      # Next run: the value should come from the cache
+      assert get_with_referenced_key_from_args("name", %{id: "id"}) == result
+    end
+
+    test "returns fixed referenced" do
+      # Expected values
+      referenced_key = keyref "fixed_id"
+      result = %{id: "fixed_id", name: "name"}
+
+      # Nothing is cached yet
+      refute Cache.get("fixed_id")
+      refute Cache.get("name")
+
+      # First run: the function block is executed and its result is cached under
+      # the referenced key, and the referenced key is cached under the given key
+      assert get_with_fixed_referenced_key("name") == result
+
+      # Assert the key points to the referenced key
+      assert Cache.get("name") == referenced_key
+
+      # Assert the referenced key points to the cached value
+      assert Cache.get("fixed_id") == result
+
+      # Next run: the value should come from the cache
+      assert get_with_fixed_referenced_key("name") == result
+    end
+
+    test "returns referenced key by calling referenced cache" do
+      # Expected values
+      referenced_key = keyref YetAnotherCache, "referenced_id"
+      result = %{id: "referenced_id", name: "referenced_name"}
+
+      # Nothing is cached yet
+      refute Cache.get("referenced_id")
+      refute Cache.get("referenced_name")
+
+      # First run: the function block is executed and its result is cached under
+      # the referenced key, and the referenced key is cached under the given key
+      assert get_with_ref_key_with_cache("referenced_name") == result
+
+      # Assert the key points to the referenced key
+      assert Cache.get("referenced_name") == referenced_key
+
+      # Assert the referenced key points to the cached value
+      assert YetAnotherCache.get("referenced_id") == result
+
+      # Next run: the value should come from the cache
+      assert get_with_ref_key_with_cache("referenced_name") == result
+
+      # Simulate a cache eviction for the referenced key
+      :ok = YetAnotherCache.delete("referenced_id")
+
+      # The value under the referenced key should not longer exist
+      refute YetAnotherCache.get("referenced_id")
+
+      # Assert the key still points to the referenced key
+      assert Cache.get("referenced_name") == referenced_key
+
+      # Next run: the key does exist but the referenced key doesn't, then the
+      # function block is executed and the result is cached under the referenced
+      # key back again
+      assert get_with_ref_key_with_cache("referenced_name") == result
+
+      # Assert the key points to the referenced key
+      assert Cache.get("referenced_name") == referenced_key
+
+      # Assert the referenced key points to the cached value
+      assert YetAnotherCache.get("referenced_id") == result
+
+      # Similate the referenced key is overridden
+      :ok = Cache.put("referenced_name", "overridden")
+
+      # The referenced key is overridden
+      assert get_with_ref_key_with_cache("referenced_name") == "overridden"
+    end
+  end
+
   describe "cache_put" do
     test "with default opts" do
+      assert update_fun(1) == nil
+      refute Cache.get(1)
+
+      assert update_fun(1, :error) == :error
+      refute Cache.get(1)
+
+      assert update_fun(1, {:error, :error}) == {:error, :error}
+      refute Cache.get(1)
+
       assert set_keys(x: 1, y: 2, z: 3) == :ok
-      assert update_fun(:x) == :x
-      assert update_fun(:y) == :y
-      assert Cache.get(:x) == :x
-      assert Cache.get(:y) == :y
+
+      assert update_fun(:x, 2) == 2
+      assert update_fun(:y, {:ok, 4}) == {:ok, 4}
+
+      assert Cache.get(:x) == 2
+      assert Cache.get(:y) == {:ok, 4}
       assert Cache.get(:z) == 3
 
       :ok = Process.sleep(1100)
-      assert Cache.get(:x) == :x
-      assert Cache.get(:y) == :y
+
+      assert Cache.get(:x) == 2
+      assert Cache.get(:y) == {:ok, 4}
       assert Cache.get(:z) == 3
     end
 
@@ -451,17 +638,66 @@ defmodule Nebulex.CachingTest do
     end
   end
 
+  describe "option :cache with MFA" do
+    test "cacheable annotation" do
+      refute Cache.get("foo")
+      assert get_mfa_cache_without_extra_args("foo") == "foo"
+      assert Cache.get("foo") == "foo"
+    end
+
+    test "cache_put annotation" do
+      :ok = Cache.put("foo", "bar")
+
+      assert update_mfa_cache_without_extra_args("bar bar") == "bar bar"
+      assert Cache.get("foo") == "bar bar"
+    end
+
+    test "cache_evict annotation" do
+      :ok = Cache.put("foo", "bar")
+
+      assert delete_mfa_cache_without_extra_args("bar bar") == "bar bar"
+      refute Cache.get("foo")
+    end
+  end
+
+  describe "option :cache with MFA and extra args" do
+    test "cacheable annotation" do
+      refute Cache.get("foo")
+      assert get_mfa_cache_with_extra_args("foo") == "foo"
+      assert Cache.get("foo") == "foo"
+    end
+
+    test "cache_put annotation" do
+      :ok = Cache.put("foo", "bar")
+
+      assert update_mfa_cache_with_extra_args("bar bar") == "bar bar"
+      assert Cache.get("foo") == "bar bar"
+    end
+
+    test "cache_evict annotation" do
+      :ok = Cache.put("foo", "bar")
+
+      assert delete_mfa_cache_with_extra_args("bar bar") == "bar bar"
+      refute Cache.get("foo")
+    end
+  end
+
   ## Annotated Functions
 
   @decorate cacheable(cache: Cache)
   def get_without_args, do: "hello"
 
   @decorate cacheable(cache: Cache, key: x)
-  def get_by_x(x, y \\ "y") do
-    case x do
-      "nil" -> nil
-      _ -> {x, y}
+  def get_by_x(x, y \\ nil) do
+    with _ when not is_nil(x) <- x,
+         _ when not is_nil(y) <- y do
+      y
     end
+  end
+
+  @decorate cacheable(cache: Cache, key: {x, y})
+  def get_by_xy(x, y) do
+    {x, y * 2}
   end
 
   @decorate cacheable(cache: Cache, opts: [ttl: 1000])
@@ -487,11 +723,6 @@ defmodule Nebulex.CachingTest do
     _ -> :error
   end
 
-  @decorate cacheable(cache: Cache, key: {x, y})
-  def get_by_xy(x, y) do
-    {x, y * 2}
-  end
-
   @decorate cacheable(cache: Cache)
   def get_with_default_key(x, y) do
     _ = {x, y}
@@ -512,8 +743,11 @@ defmodule Nebulex.CachingTest do
   def update_without_args, do: "hello"
 
   @decorate cache_put(cache: Cache, key: x)
-  def update_fun(x) do
-    x
+  def update_fun(x, y \\ nil) do
+    with _ when not is_nil(x) <- x,
+         _ when not is_nil(y) <- y do
+      y
+    end
   end
 
   @decorate cache_put(cache: Cache, key: x, opts: [ttl: 1000])
@@ -641,20 +875,77 @@ defmodule Nebulex.CachingTest do
     x * y
   end
 
-  @decorate cacheable(cache: ErrorCache, key: x, on_error: :nothing)
+  @decorate cacheable(cache: YetAnotherCache, key: x, on_error: :nothing)
   def get_with_exception(x) do
     x
   end
 
-  @decorate cache_put(cache: ErrorCache, key: x, on_error: :nothing)
+  @decorate cache_put(cache: YetAnotherCache, key: x, on_error: :nothing)
   def update_with_exception(x) do
     x
   end
 
-  @decorate cache_evict(cache: ErrorCache, key: x, on_error: :nothing)
+  @decorate cache_evict(cache: YetAnotherCache, key: x, on_error: :nothing)
   def evict_with_exception(x) do
     x
   end
+
+  @decorate cacheable(cache: {__MODULE__, :cache_with_extra_args, ["extra_arg"]}, key: var)
+  def get_mfa_cache_with_extra_args(var) do
+    var
+  end
+
+  @decorate cacheable(cache: {__MODULE__, :cache_without_extra_args, []}, key: var)
+  def get_mfa_cache_without_extra_args(var) do
+    var
+  end
+
+  @decorate cache_put(cache: {__MODULE__, :cache_with_extra_args, ["extra_arg"]}, key: "foo")
+  def update_mfa_cache_with_extra_args(var) do
+    var
+  end
+
+  @decorate cache_put(cache: {__MODULE__, :cache_without_extra_args, []}, key: "foo")
+  def update_mfa_cache_without_extra_args(var) do
+    var
+  end
+
+  @decorate cache_evict(cache: {__MODULE__, :cache_with_extra_args, ["extra_arg"]}, key: "foo")
+  def delete_mfa_cache_with_extra_args(var) do
+    var
+  end
+
+  @decorate cache_evict(cache: {__MODULE__, :cache_without_extra_args, []}, key: "foo")
+  def delete_mfa_cache_without_extra_args(var) do
+    var
+  end
+
+  @decorate cacheable(cache: Cache, key: name, references: & &1.id)
+  def get_with_referenced_key(name) do
+    %{id: "referenced_id", name: name}
+  end
+
+  @decorate cacheable(cache: Cache, key: name, references: attrs.id)
+  def get_with_referenced_key_from_args(name, attrs) do
+    %{attrs: attrs, name: name}
+  end
+
+  @decorate cacheable(cache: Cache, key: name, references: "fixed_id")
+  def get_with_fixed_referenced_key(name) do
+    %{id: "fixed_id", name: name}
+  end
+
+  @decorate cacheable(cache: Cache, key: name, references: &keyref(YetAnotherCache, &1.id))
+  def get_with_ref_key_with_cache(name) do
+    %{id: "referenced_id", name: name}
+  end
+
+  @decorate cacheable(cache: Cache, key: ttl, match: &match_fun/1)
+  def get_with_custom_ttl(ttl) do
+    {:ok, %{ttl: ttl}}
+  end
+
+  ## Helpers
 
   # Custom key-generator function
   def generate_key(arg), do: arg
@@ -664,9 +955,14 @@ defmodule Nebulex.CachingTest do
     :erlang.phash2({module, function_name, args})
   end
 
+  def cache_with_extra_args(_mod, _fun, _args, _extra_arg), do: Cache
+
+  def cache_without_extra_args(_mod, _fun, _args), do: Cache
+
   ## Private Functions
 
   defp match_fun({:ok, "true"}), do: true
+  defp match_fun({:ok, %{ttl: ttl}} = ok), do: {true, ok, [ttl: ttl]}
   defp match_fun({:ok, val}), do: {true, val}
   defp match_fun(_), do: false
 

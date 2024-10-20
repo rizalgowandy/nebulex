@@ -189,7 +189,7 @@ defmodule Nebulex.Adapters.Replicated do
         ```
 
     * `telemetry_prefix ++ [:bootstrap]` - Dispatched by the adapter at start
-      time when there are errors while synching up with the cluster nodes.
+      time when there are errors while syncing up with the cluster nodes.
 
       * Measurements:
 
@@ -220,7 +220,7 @@ defmodule Nebulex.Adapters.Replicated do
   or alter the cache somehow to ensure as much consistency as possible across
   all members of the cluster. These locks may be per key or for the entire cache
   depending on the operation taking place. For that reason, it is very important
-  to be aware about those operation that can potentally lead to performance and
+  to be aware about those operation that can potentially lead to performance and
   scalability issues, so that you can do a better usage of the replicated
   adapter. The following is with the operations and aspects you should pay
   attention to:
@@ -265,6 +265,8 @@ defmodule Nebulex.Adapters.Replicated do
 
   # Inherit default persistence implementation
   use Nebulex.Adapter.Persistence
+
+  import Bitwise, only: [<<<: 2]
 
   import Nebulex.Adapter
   import Nebulex.Helpers
@@ -361,7 +363,7 @@ defmodule Nebulex.Adapters.Replicated do
         name: normalize_module_name([name, Supervisor]),
         strategy: :rest_for_one,
         children: [
-          {cache.__primary__, primary_opts},
+          {cache.__primary__(), primary_opts},
           {__MODULE__.Bootstrap, Map.put(adapter_meta, :cache, cache)}
           | children
         ]
@@ -518,39 +520,48 @@ defmodule Nebulex.Adapters.Replicated do
   when needed.
   """
   def with_dynamic_cache(%{cache: cache, primary_name: nil}, action, args) do
-    apply(cache.__primary__, action, args)
+    apply(cache.__primary__(), action, args)
   end
 
   def with_dynamic_cache(%{cache: cache, primary_name: primary_name}, action, args) do
-    cache.__primary__.with_dynamic_cache(primary_name, fn ->
-      apply(cache.__primary__, action, args)
+    cache.__primary__().with_dynamic_cache(primary_name, fn ->
+      apply(cache.__primary__(), action, args)
     end)
   end
 
   ## Private Functions
 
-  defp with_transaction(
-         %{pid: pid, name: name} = adapter_meta,
-         action,
-         keys,
-         args,
-         opts \\ []
-       ) do
-    nodes = Cluster.get_nodes(name)
+  defp with_transaction(adapter_meta, action, keys, args, opts \\ []) do
+    do_with_transaction(adapter_meta, action, keys, args, opts, 1)
+  end
 
-    # Ensure it waits until ongoing delete_all or sync operations finish,
-    # if there's any.
-    :global.trans(
-      {name, pid},
-      fn ->
+  defp do_with_transaction(%{name: name} = adapter_meta, action, keys, args, opts, times) do
+    # This is a bit hacky because the `:global_locks` table managed by
+    # `:global` is being accessed directly breaking the encapsulation.
+    # So far, this has been the simplest and fastest way to validate if
+    # the global sync lock `:"$sync_lock"` is set, so we block write-like
+    # operations until it finishes. The other option would be trying to
+    # lock the same key `:"$sync_lock"`, and then when the lock is acquired,
+    # delete it before processing the write operation. But this means another
+    # global lock across the cluster every time there is a write. So for the
+    # time being, we just read the global table to validate it which is much
+    # faster; since it is a local read with the global ETS, there is no global
+    # locks across the cluster.
+    case :ets.lookup(:global_locks, :"$sync_lock") do
+      [_] ->
+        :ok = random_sleep(times)
+
+        do_with_transaction(adapter_meta, action, keys, args, opts, times + 1)
+
+      [] ->
+        nodes = Cluster.get_nodes(name)
+
         # Write-like operation must be wrapped within a transaction
         # to ensure proper replication
         transaction(adapter_meta, [keys: keys, nodes: nodes], fn ->
           multi_call(adapter_meta, action, args, opts)
         end)
-      end,
-      nodes
-    )
+    end
   end
 
   defp multi_call(%{name: name, task_sup: task_sup} = meta, action, args, opts) do
@@ -614,6 +625,29 @@ defmodule Nebulex.Adapters.Replicated do
       )
     end
   end
+
+  # coveralls-ignore-start
+
+  defp random_sleep(times) do
+    _ =
+      if rem(times, 10) == 0 do
+        _ = :rand.seed(:exsplus)
+      end
+
+    # First time 1/4 seconds, then doubling each time up to 8 seconds max
+    tmax =
+      if times > 5 do
+        8000
+      else
+        div((1 <<< times) * 1000, 8)
+      end
+
+    tmax
+    |> :rand.uniform()
+    |> Process.sleep()
+  end
+
+  # coveralls-ignore-stop
 end
 
 defmodule Nebulex.Adapters.Replicated.Bootstrap do
@@ -698,14 +732,14 @@ defmodule Nebulex.Adapters.Replicated.Bootstrap do
   ## Helpers
 
   defp lock(name) do
-    nodes = Cluster.get_nodes(name)
-    true = :global.set_lock({name, self()}, nodes)
+    true = :global.set_lock({:"$sync_lock", self()}, Cluster.get_nodes(name))
+
     :ok
   end
 
   defp unlock(name) do
-    nodes = Cluster.get_nodes(name)
-    true = :global.del_lock({name, self()}, nodes)
+    true = :global.del_lock({:"$sync_lock", self()}, Cluster.get_nodes(name))
+
     :ok
   end
 
@@ -724,7 +758,7 @@ defmodule Nebulex.Adapters.Replicated.Bootstrap do
         # 1. Push a new generation on all cluster nodes to make the newer one
         #    empty.
         # 2. Copy cached data from one of the cluster nodes; entries will be
-        #    stremed from the older generation since the newer one should be
+        #    streamed from the older generation since the newer one should be
         #    empty.
         # 3. Push a new generation on the current/new node to make it a mirror
         #    of the other cluster nodes.
@@ -739,7 +773,7 @@ defmodule Nebulex.Adapters.Replicated.Bootstrap do
   end
 
   defp maybe_run_on_nodes(%{cache: cache} = adapter_meta, nodes, fun) do
-    if cache.__primary__.__adapter__() == Nebulex.Adapters.Local do
+    if cache.__primary__().__adapter__() == Nebulex.Adapters.Local do
       nodes
       |> :rpc.multicall(Replicated, :with_dynamic_cache, [adapter_meta, fun, []])
       |> handle_multicall(adapter_meta)

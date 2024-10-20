@@ -177,14 +177,16 @@ defmodule Nebulex.Adapters.Local.GenerationTest do
       {mem_size, _} = Generation.memory_info(LocalWithSizeLimit)
       :ok = Generation.realloc(LocalWithSizeLimit, mem_size * 2)
 
-      # triggers the cleanup event
+      # Trigger the cleanup event
       :ok = check_cache_size(LocalWithSizeLimit)
 
-      :ok = flood_cache(mem_size, mem_size * 2)
       assert generations_len(LocalWithSizeLimit) == 1
+
+      :ok = flood_cache(mem_size, mem_size * 2)
+
       assert_mem_size(:>)
 
-      # wait until the cleanup event is triggered
+      # Wait until the cleanup event is triggered
       :ok = Process.sleep(3100)
 
       wait_until(fn ->
@@ -236,6 +238,7 @@ defmodule Nebulex.Adapters.Local.GenerationTest do
       end
 
       for task <- tasks, do: Task.shutdown(task)
+
       :ok = LocalWithSizeLimit.stop()
     end
   end
@@ -246,39 +249,86 @@ defmodule Nebulex.Adapters.Local.GenerationTest do
         LocalWithSizeLimit.start_link(
           gc_interval: 3_600_000,
           max_size: 3,
-          gc_cleanup_min_timeout: 10,
-          gc_cleanup_max_timeout: 1000
+          gc_cleanup_min_timeout: 1000,
+          gc_cleanup_max_timeout: 1500
         )
 
+      # Initially there should be only 1 generation and no entries
       assert generations_len(LocalWithSizeLimit) == 1
       assert LocalWithSizeLimit.count_all() == 0
 
+      # Put some entries to exceed the max size
       _ = cache_put(LocalWithSizeLimit, 1..4)
 
+      # Validate current size
       assert LocalWithSizeLimit.count_all() == 4
 
-      :ok = Process.sleep(1100)
+      # Wait the max cleanup timeout
+      :ok = Process.sleep(1600)
 
+      # There should be 2 generation now
       assert generations_len(LocalWithSizeLimit) == 2
 
-      :ok = Process.sleep(1100)
-
-      assert generations_len(LocalWithSizeLimit) == 2
-
-      _ = cache_put(LocalWithSizeLimit, 5..8)
-
+      # The entries should be now in the older generation
       assert LocalWithSizeLimit.count_all() == 4
 
+      # Wait the min cleanup timeout since max size is exceeded
       :ok = Process.sleep(1100)
 
-      assert generations_len(LocalWithSizeLimit) == 2
-      assert LocalWithSizeLimit.count_all() == 4
-
-      :ok = Process.sleep(1100)
-
-      assert generations_len(LocalWithSizeLimit) == 2
+      # Cache should be empty now
       assert LocalWithSizeLimit.count_all() == 0
 
+      # Put some entries without exceeding the max size
+      _ = cache_put(LocalWithSizeLimit, 5..6)
+
+      # Validate current size
+      assert LocalWithSizeLimit.count_all() == 2
+
+      # Wait the max cleanup timeout (timeout should be relative to the size)
+      :ok = Process.sleep(1600)
+
+      # The entries should be in the newer generation yet
+      assert LocalWithSizeLimit.count_all() == 2
+
+      # Put some entries to exceed the max size
+      _ = cache_put(LocalWithSizeLimit, 7..8)
+
+      # Wait the max cleanup timeout
+      :ok = Process.sleep(1600)
+
+      # The entries should be in the newer generation yet
+      assert LocalWithSizeLimit.count_all() == 4
+
+      # Wait the min cleanup timeout since max size is exceeded
+      :ok = Process.sleep(1100)
+
+      # Cache should be empty now
+      assert LocalWithSizeLimit.count_all() == 0
+
+      # Stop the cache
+      :ok = LocalWithSizeLimit.stop()
+    end
+  end
+
+  describe "cleanup cover" do
+    test "cleanup when gc_interval not set" do
+      {:ok, _pid} =
+        LocalWithSizeLimit.start_link(
+          max_size: 3,
+          gc_cleanup_min_timeout: 1000,
+          gc_cleanup_max_timeout: 1500
+        )
+
+      # Put some entries to exceed the max size
+      _ = cache_put(LocalWithSizeLimit, 1..4)
+
+      # Wait the max cleanup timeout
+      :ok = Process.sleep(1600)
+
+      # assert not crashed
+      assert LocalWithSizeLimit.count_all() == 4
+
+      # Stop the cache
       :ok = LocalWithSizeLimit.stop()
     end
   end

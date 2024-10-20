@@ -24,7 +24,7 @@ defmodule Nebulex.Dialyzer.CachingDecorators do
     %Account{username: username}
   end
 
-  @spec update_account(Account.t()) :: Account.t()
+  @spec update_account(Account.t()) :: {:ok, Account.t()}
   @decorate cache_put(
               cache: Cache,
               keys: [{Account, acct.id}, {Account, acct.username}],
@@ -35,7 +35,7 @@ defmodule Nebulex.Dialyzer.CachingDecorators do
     {:ok, acct}
   end
 
-  @spec update_account_by_id(binary, %{optional(atom) => term}) :: Account.t()
+  @spec update_account_by_id(binary, %{optional(atom) => term}) :: {:ok, Account.t()}
   @decorate cache_put(cache: Cache, key: {Account, id}, match: &match/1, opts: [ttl: @ttl])
   def update_account_by_id(id, attrs) do
     {:ok, struct(Account, Map.put(attrs, :id, id))}
@@ -53,6 +53,25 @@ defmodule Nebulex.Dialyzer.CachingDecorators do
     filter
   end
 
-  defp match({:ok, updated}), do: {true, updated}
+  @spec get_user_key(integer) :: binary
+  @decorate cacheable(
+              cache: {__MODULE__, :dynamic_cache, [:dynamic]},
+              key_generator: {__MODULE__, [id]}
+            )
+  def get_user_key(id), do: id
+
+  @spec update_user_key(integer) :: binary
+  @decorate cacheable(cache: Cache, key_generator: {__MODULE__, :generate_key, [id]})
+  def update_user_key(id), do: id
+
+  ## Helpers
+
+  defp match({:ok, _} = ok), do: {true, ok}
   defp match({:error, _}), do: false
+
+  def generate(mod, fun, args), do: :erlang.phash2({mod, fun, args})
+
+  def generate_key(args), do: :erlang.phash2(args)
+
+  def dynamic_cache(_, _, _, _), do: Cache
 end

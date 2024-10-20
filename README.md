@@ -3,7 +3,6 @@
 
 ![CI](https://github.com/cabol/nebulex/workflows/CI/badge.svg)
 [![Coverage Status](https://img.shields.io/coveralls/cabol/nebulex.svg)](https://coveralls.io/github/cabol/nebulex)
-[![Inline docs](http://inch-ci.org/github/cabol/nebulex.svg)](http://inch-ci.org/github/cabol/nebulex)
 [![Hex Version](https://img.shields.io/hexpm/v/nebulex.svg)](https://hex.pm/packages/nebulex)
 [![Docs](https://img.shields.io/badge/docs-hexpm-blue.svg)](https://hexdocs.pm/nebulex)
 [![License](https://img.shields.io/hexpm/l/nebulex.svg)](LICENSE)
@@ -13,8 +12,8 @@ Elixir application. Similar to [Ecto][ecto], the caching abstraction allows
 consistent use of various caching solutions with minimal impact on the code.
 
 Nebulex cache abstraction shields developers from directly dealing with the
-underlying caching implementations, such as [Redis][redis],
-[Memcached][memcached], or even other Elixir cache implementations like
+underlying caching implementations, such as [Redis][redis]
+or even other Elixir cache implementations like
 [Cachex][cachex]. Additionally, it provides totally out-of-box features such as
 [cache usage patterns][cache_patterns],
 [declarative annotation-based caching][nbx_caching], and
@@ -27,7 +26,6 @@ for more information.
 [ecto]: https://github.com/elixir-ecto/ecto
 [cachex]: https://github.com/whitfin/cachex
 [redis]: https://redis.io/
-[memcached]: https://memcached.org/
 [nbx_caching]: http://hexdocs.pm/nebulex/Nebulex.Caching.html
 [cache_patterns]: http://hexdocs.pm/nebulex/cache-usage-patterns.html
 [cache_topologies]: https://docs.oracle.com/middleware/1221/coherence/develop-applications/cache_intro.htm
@@ -49,6 +47,9 @@ Multilevel | [Nebulex.Adapters.Multilevel][ma] | Built-In
 Nil (special adapter that disables the cache) | [Nebulex.Adapters.Nil][nil] | Built-In
 Cachex | Nebulex.Adapters.Cachex | [nebulex_adapters_cachex][nbx_cachex]
 Redis | NebulexRedisAdapter | [nebulex_redis_adapter][nbx_redis]
+Distributed with Horde | Nebulex.Adapters.Horde | [nebulex_adapters_horde][nbx_horde]
+Multilevel with cluster broadcasting | NebulexLocalMultilevelAdapter | [nebulex_local_multilevel_adapter][nbx_local_multilevel]
+Ecto Postgres table | Nebulex.Adapters.Ecto | [nebulex_adapters_ecto][nbx_ecto_postgres]
 
 [la]: http://hexdocs.pm/nebulex/Nebulex.Adapters.Local.html
 [pa]: http://hexdocs.pm/nebulex/Nebulex.Adapters.Partitioned.html
@@ -57,14 +58,18 @@ Redis | NebulexRedisAdapter | [nebulex_redis_adapter][nbx_redis]
 [nil]: http://hexdocs.pm/nebulex/Nebulex.Adapters.Nil.html
 [nbx_cachex]: https://github.com/cabol/nebulex_adapters_cachex
 [nbx_redis]: https://github.com/cabol/nebulex_redis_adapter
+[nbx_horde]: https://github.com/eliasdarruda/nebulex_adapters_horde
+[nbx_local_multilevel]: https://github.com/slab/nebulex_local_multilevel_adapter
+[nbx_ecto_postgres]: https://github.com/hissssst/nebulex_adapters_ecto
+
 
 For example, if you want to use a built-in cache, add to your `mix.exs` file:
 
 ```elixir
 def deps do
   [
-    {:nebulex, "~> 2.3"},
-    {:shards, "~> 1.0"},     #=> When using :shards as backend
+    {:nebulex, "~> 2.6"},
+    {:shards, "~> 1.1"},     #=> When using :shards as backend
     {:decorator, "~> 1.4"},  #=> When using Caching Annotations
     {:telemetry, "~> 1.0"}   #=> When using the Telemetry events (Nebulex stats)
   ]

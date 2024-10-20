@@ -33,14 +33,17 @@ defmodule Nebulex.Entry do
 
   ## Example
 
-      iex> Nebulex.Entry.encode(%Nebulex.Entry{})
-      _encoded_entry
+      iex> "hello"
+      ...> |> Nebulex.Entry.encode()
+      ...> |> Nebulex.Entry.decode()
+      "hello"
+
   """
   @spec encode(term, [term]) :: binary
   def encode(data, opts \\ []) do
     data
     |> :erlang.term_to_binary(opts)
-    |> Base.url_encode64()
+    |> Base.encode64()
   end
 
   @doc """
@@ -48,16 +51,17 @@ defmodule Nebulex.Entry do
 
   ## Example
 
-      iex> %Nebulex.Entry{}
+      iex> "hello"
       ...> |> Nebulex.Entry.encode()
       ...> |> Nebulex.Entry.decode()
-      _decoded_entry
+      "hello"
+
   """
   # sobelow_skip ["Misc.BinToTerm"]
   @spec decode(binary, [term]) :: term
   def decode(data, opts \\ []) when is_binary(data) do
     data
-    |> Base.url_decode64!()
+    |> Base.decode64!()
     |> :erlang.binary_to_term(opts)
   end
 
@@ -68,6 +72,12 @@ defmodule Nebulex.Entry do
 
       iex> Nebulex.Entry.expired?(%Nebulex.Entry{})
       false
+
+      iex> Nebulex.Entry.expired?(
+      ...>   %Nebulex.Entry{touched: Nebulex.Time.now() - 10, ttl: 1}
+      ...> )
+      true
+
   """
   @spec expired?(t) :: boolean
   def expired?(%__MODULE__{ttl: :infinity}), do: false
@@ -83,6 +93,14 @@ defmodule Nebulex.Entry do
 
       iex> Nebulex.Entry.ttl(%Nebulex.Entry{})
       :infinity
+
+      iex> ttl =
+      ...>   Nebulex.Entry.ttl(
+      ...>     %Nebulex.Entry{touched: Nebulex.Time.now(), ttl: 100}
+      ...>   )
+      iex> ttl > 0
+      true
+
   """
   @spec ttl(t) :: timeout
   def ttl(%__MODULE__{ttl: :infinity}), do: :infinity

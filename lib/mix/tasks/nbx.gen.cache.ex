@@ -12,7 +12,7 @@ defmodule Mix.Tasks.Nbx.Gen.Cache do
 
   Besides, you can also specify the adapter you want to use, like so:
 
-      mix nbx.gen.cache -c MyApp.PartitionedCache -a Nebulex.Adapters.Local
+      mix nbx.gen.cache -c MyApp.LocalCache -a Nebulex.Adapters.Local
       mix nbx.gen.cache -c MyApp.PartitionedCache -a Nebulex.Adapters.Partitioned
       mix nbx.gen.cache -c MyApp.ReplicatedCache -a Nebulex.Adapters.Replicated
       mix nbx.gen.cache -c MyApp.MultilevelCache -a Nebulex.Adapters.Multilevel
@@ -83,8 +83,6 @@ defmodule Mix.Tasks.Nbx.Gen.Cache do
 
         {#{inspect(cache)}, []}
 
-    And for more information about configuration options, check
-    adapters documentation and Nebulex.Cache shared options.
     """)
   end
 
@@ -189,7 +187,7 @@ defmodule Mix.Tasks.Nbx.Gen.Cache do
     allocated_memory: 2_000_000_000,
     # GC min timeout: 10 sec
     gc_cleanup_min_timeout: :timer.seconds(10),
-    # GC min timeout: 10 min
+    # GC max timeout: 10 min
     gc_cleanup_max_timeout: :timer.minutes(10)
   """)
 
@@ -206,7 +204,7 @@ defmodule Mix.Tasks.Nbx.Gen.Cache do
       allocated_memory: 2_000_000_000,
       # GC min timeout: 10 sec
       gc_cleanup_min_timeout: :timer.seconds(10),
-      # GC min timeout: 10 min
+      # GC max timeout: 10 min
       gc_cleanup_max_timeout: :timer.minutes(10)
     ]
   """)

@@ -48,7 +48,7 @@ defmodule Nebulex.Adapters.Partitioned do
       However, this adapter does not provide fault-tolerance implementation,
       each piece of data is kept in a single node/machine (via sharding), then,
       if a node fails, the data kept by this node won't be available for the
-      rest of the cluster memebers.
+      rest of the cluster members.
 
   > Based on **"Distributed Caching Essential Lessons"** by **Cameron Purdy**
     and [Coherence Partitioned Cache Service][oracle-pcs].
@@ -423,7 +423,7 @@ defmodule Nebulex.Adapters.Partitioned do
         name: normalize_module_name([name, Supervisor]),
         strategy: :rest_for_one,
         children: [
-          {cache.__primary__, primary_opts},
+          {cache.__primary__(), primary_opts},
           {__MODULE__.Bootstrap, {Map.put(adapter_meta, :cache, cache), opts}}
           | children
         ]
@@ -581,7 +581,7 @@ defmodule Nebulex.Adapters.Partitioned do
   defspan execute(adapter_meta, operation, query, opts) do
     reducer =
       case operation do
-        :all -> &List.flatten/1
+        :all -> &Enum.flat_map(&1, fn item -> item end)
         _ -> &Enum.sum/1
       end
 
@@ -660,13 +660,15 @@ defmodule Nebulex.Adapters.Partitioned do
   Helper function to use dynamic cache for internal primary cache storage
   when needed.
   """
+  def with_dynamic_cache(adapter_meta, action, args)
+
   def with_dynamic_cache(%{cache: cache, primary_name: nil}, action, args) do
-    apply(cache.__primary__, action, args)
+    apply(cache.__primary__(), action, args)
   end
 
   def with_dynamic_cache(%{cache: cache, primary_name: primary_name}, action, args) do
-    cache.__primary__.with_dynamic_cache(primary_name, fn ->
-      apply(cache.__primary__, action, args)
+    cache.__primary__().with_dynamic_cache(primary_name, fn ->
+      apply(cache.__primary__(), action, args)
     end)
   end
 
@@ -711,15 +713,21 @@ defmodule Nebulex.Adapters.Partitioned do
     end
   end
 
-  defp group_keys_by_node(enum, adapter_meta) do
+  defp group_keys_by_node(enum, adapter_meta, :get_all) do
+    Enum.reduce(enum, %{}, fn
+      key, acc ->
+        node = get_node(adapter_meta, key)
+        Map.put(acc, node, [key | Map.get(acc, node, [])])
+    end)
+  end
+
+  @put_all_actions [:put_all, :put_new_all]
+  defp group_keys_by_node(enum, adapter_meta, put_all_action)
+       when put_all_action in @put_all_actions do
     Enum.reduce(enum, %{}, fn
       {key, _} = entry, acc ->
         node = get_node(adapter_meta, key)
         Map.put(acc, node, [entry | Map.get(acc, node, [])])
-
-      key, acc ->
-        node = get_node(adapter_meta, key)
-        Map.put(acc, node, [key | Map.get(acc, node, [])])
     end)
   end
 
@@ -733,7 +741,7 @@ defmodule Nebulex.Adapters.Partitioned do
        ) do
     groups =
       enum
-      |> group_keys_by_node(meta)
+      |> group_keys_by_node(meta, action)
       |> Enum.map(fn {node, group} ->
         {node, {__MODULE__, :with_dynamic_cache, [meta, action, [group | args]]}}
       end)

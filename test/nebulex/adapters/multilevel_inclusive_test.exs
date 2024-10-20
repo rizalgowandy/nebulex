@@ -9,8 +9,10 @@ defmodule Nebulex.Adapters.MultilevelInclusiveTest do
 
   alias Nebulex.Adapters.Local.Generation
   alias Nebulex.Cache.Cluster
+  alias Nebulex.TestCache.DelayedReadAdapter
   alias Nebulex.TestCache.Multilevel
   alias Nebulex.TestCache.Multilevel.{L1, L2, L3}
+  alias Nebulex.TestCache.MultilevelWithDelay
 
   @gc_interval :timer.hours(1)
 
@@ -39,7 +41,7 @@ defmodule Nebulex.Adapters.MultilevelInclusiveTest do
     test "returns partitions for L1 with shards backend", %{name: name} do
       assert :"#{name}_l1"
              |> Generation.newer()
-             |> :shards.meta()
+             |> :shards.table_meta()
              |> :shards_meta.partitions() == 2
     end
 
@@ -65,7 +67,65 @@ defmodule Nebulex.Adapters.MultilevelInclusiveTest do
       assert Multilevel.get(3) == 3
       assert Multilevel.get(3, level: 1) == 3
       assert Multilevel.get(3, level: 2) == 3
+      assert Multilevel.get(3, level: 3) == 3
+    end
+
+    test "get_all [replicate: true]" do
+      :ok = Process.sleep(2000)
+      :ok = Multilevel.put(1, 1, level: 1)
+      :ok = Multilevel.put(2, 2, level: 2)
+      :ok = Multilevel.put(3, 3, level: 3)
+
+      assert Multilevel.get_all([1]) == %{1 => 1}
+      refute Multilevel.get(1, level: 2)
+      refute Multilevel.get(1, level: 3)
+
+      assert Multilevel.get_all([1, 2]) == %{1 => 1, 2 => 2}
+      assert Multilevel.get(2, level: 1) == 2
+      assert Multilevel.get(2, level: 2) == 2
+      refute Multilevel.get(2, level: 3)
+
+      assert Multilevel.get(3, level: 3) == 3
+      refute Multilevel.get(3, level: 1)
+      refute Multilevel.get(3, level: 2)
+
+      assert Multilevel.get_all([1, 2, 3]) == %{1 => 1, 2 => 2, 3 => 3}
+      assert Multilevel.get(3, level: 1) == 3
       assert Multilevel.get(3, level: 2) == 3
+      assert Multilevel.get(3, level: 3) == 3
+    end
+
+    test "get_all [replicate: false]" do
+      :ok = Process.sleep(2000)
+      :ok = Multilevel.put(1, 1, level: 1)
+      :ok = Multilevel.put(2, 2, level: 2)
+      :ok = Multilevel.put(3, 3, level: 3)
+
+      assert Multilevel.get_all([1], replicate: false) == %{1 => 1}
+      refute Multilevel.get(1, level: 2)
+      refute Multilevel.get(1, level: 3)
+
+      assert Multilevel.get_all([1, 2], replicate: false) == %{1 => 1, 2 => 2}
+      refute Multilevel.get(2, level: 1)
+      assert Multilevel.get(2, level: 2) == 2
+      refute Multilevel.get(2, level: 3)
+
+      assert Multilevel.get(3, level: 3) == 3
+      refute Multilevel.get(3, level: 1)
+      refute Multilevel.get(3, level: 2)
+
+      assert Multilevel.get_all([1, 2, 3], replicate: false) == %{1 => 1, 2 => 2, 3 => 3}
+      refute Multilevel.get(3, level: 1)
+      refute Multilevel.get(3, level: 2)
+      assert Multilevel.get(3, level: 3) == 3
+    end
+
+    test "get boolean" do
+      :ok = Multilevel.put(1, true, level: 1)
+      :ok = Multilevel.put(2, false, level: 1)
+
+      assert Multilevel.get(1) == true
+      assert Multilevel.get(2) == false
     end
 
     test "fetched value is replicated with TTL on previous levels" do
@@ -94,6 +154,39 @@ defmodule Nebulex.Adapters.MultilevelInclusiveTest do
       refute Multilevel.get(:b, level: 1)
       refute Multilevel.get(:b, level: 2)
       refute Multilevel.get(:b, level: 3)
+    end
+  end
+
+  describe "delayed multilevel" do
+    setup_with_dynamic_cache(MultilevelWithDelay, :multilevel_inclusive_with_delay,
+      model: :inclusive,
+      levels: [
+        {MultilevelWithDelay.L1,
+         name: :multilevel_inclusive_with_delay_l1,
+         gc_interval: @gc_interval,
+         backend: :shards,
+         partitions: 2},
+        {MultilevelWithDelay.L2,
+         name: :multilevel_inclusive_with_delay_l2,
+         gc_interval: @gc_interval,
+         backend: :shards,
+         partitions: 2}
+      ]
+    )
+
+    test "does not replicate the data if the cache expires during replication" do
+      # reading from L2 will take 500ms
+      DelayedReadAdapter.put_read_delay(500)
+
+      # since we call both `get` and `ttl` the total read time will be 1000ms
+      :ok = MultilevelWithDelay.put(:key, :data, ttl: 700, level: 2)
+
+      # the key should expire between the `get` and `tl` calls, so the data
+      # should be returned but not replicated
+      assert MultilevelWithDelay.get(:key) == :data
+      assert MultilevelWithDelay.get(:key, level: 1) == nil
+
+      assert MultilevelWithDelay.ttl(:key) == nil
     end
   end
 
